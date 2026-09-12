@@ -1,0 +1,9 @@
+node_modules/
+.env
+.env.backup.*
+licenses.json
+blacklist.json
+event_ids.json
+key_halves.json
+release_registry.json
+hwids.txt

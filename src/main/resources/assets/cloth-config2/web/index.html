@@ -1,0 +1,1330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dragonite Client - Official GUI Concept</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-panel: #0d0f18;
+            --bg-sidebar: #090a10;
+            --bg-card: rgba(255, 255, 255, 0.025);
+            --bg-card-hover: rgba(255, 255, 255, 0.045);
+            --bg-settings: #0b0c14;
+            --border-color: rgba(255, 255, 255, 0.06);
+            --border-hover: rgba(0, 180, 255, 0.35);
+            --accent-primary: #00c6ff;
+            --accent-secondary: #0072ff;
+            --accent-glow: rgba(0, 198, 255, 0.35);
+            --text-main: #e8ecf4;
+            --text-muted: #505a78;
+            --text-active: #00c6ff;
+            --sidebar-width: 200px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+
+        body {
+            background: #e2e4ea;
+            font-family: 'Outfit', sans-serif;
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .gui-frame {
+            width: 980px;
+            height: 620px;
+            background: var(--bg-panel);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 14px;
+            box-shadow: 0 40px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(0,0,0,0.3);
+            display: flex;
+            overflow: hidden;
+            position: relative;
+            animation: fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.97) translateY(6px); }
+            to   { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .window-header {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 22px;
+            z-index: 10;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(0,0,0,0.18);
+        }
+
+        .window-title {
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.5);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            pointer-events: none;
+        }
+
+        .window-title::before {
+            content: '';
+            width: 7px; height: 7px;
+            background: var(--accent-primary);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--accent-primary);
+        }
+
+        .search-bar-wrapper { position: relative; }
+
+        .search-bar {
+            width: 170px;
+            height: 28px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 6px;
+            padding: 0 10px 0 28px;
+            color: var(--text-main);
+            font-family: inherit;
+            font-size: 11px;
+            outline: none;
+            transition: all 0.25s ease;
+        }
+
+        .search-bar::placeholder { color: var(--text-muted); }
+
+        .search-bar:focus {
+            width: 210px;
+            border-color: rgba(0,198,255,0.4);
+            background: rgba(255,255,255,0.06);
+            box-shadow: 0 0 12px rgba(0,198,255,0.12);
+        }
+
+        .search-icon-svg {
+            position: absolute;
+            left: 9px; top: 50%;
+            transform: translateY(-50%);
+            width: 11px; height: 11px;
+            fill: var(--text-muted);
+            pointer-events: none;
+        }
+
+        .sidebar {
+            width: var(--sidebar-width);
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            padding-top: 60px;
+            padding-bottom: 16px;
+            gap: 2px;
+        }
+
+        .sidebar-divider {
+            height: 1px;
+            background: var(--border-color);
+            margin: 8px 16px;
+            opacity: 0.8;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 11px 22px;
+            margin: 0 8px;
+            border-radius: 8px;
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            position: relative;
+            gap: 10px;
+        }
+
+        .nav-item svg {
+            width: 16px; height: 16px;
+            fill: currentColor;
+            opacity: 0.55;
+            transition: all 0.15s ease;
+        }
+
+        .nav-item:hover {
+            color: var(--text-main);
+            background: rgba(255,255,255,0.025);
+        }
+
+        .nav-item.active {
+            color: var(--text-main);
+            background: rgba(0,198,255,0.05);
+        }
+
+        .nav-item.active::before {
+            content: '';
+            position: absolute;
+            left: -8px; top: 22%; height: 56%;
+            width: 3px;
+            background: var(--accent-primary);
+            border-radius: 0 3px 3px 0;
+            box-shadow: 0 0 10px rgba(0,198,255,0.45);
+        }
+
+        .nav-item.active svg { fill: var(--accent-primary); opacity: 1; }
+
+        .main-container {
+            flex: 1;
+            display: flex;
+            padding-top: 48px;
+            height: 100%;
+            background: var(--bg-panel);
+        }
+
+        .modules-section {
+            flex: 1.2;
+            padding: 18px;
+            overflow-y: auto;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            align-content: start;
+        }
+
+        .modules-section::-webkit-scrollbar { width: 3px; }
+        .modules-section::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 3px; }
+
+        .module-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 14px 16px;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 84px;
+        }
+
+        .module-card:hover {
+            background: var(--bg-card-hover);
+            border-color: rgba(255,255,255,0.09);
+        }
+
+        .module-card.active {
+            border-color: rgba(0,180,255,0.22);
+            background: rgba(0,198,255,0.025);
+        }
+
+        .module-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 6px;
+        }
+
+        .module-name {
+            font-size: 13.5px;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .module-card.active .module-name { color: var(--accent-primary); }
+
+        .module-description {
+            font-size: 11px;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        .module-toggle {
+            width: 30px; height: 16px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 8px;
+            position: relative;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .module-toggle::after {
+            content: '';
+            position: absolute;
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            background: #4a5270;
+            top: 3px; left: 3px;
+            transition: all 0.2s cubic-bezier(0.25,0.8,0.25,1.2);
+        }
+
+        .module-card.active .module-toggle {
+            background: var(--accent-primary);
+            box-shadow: 0 0 8px var(--accent-glow);
+        }
+
+        .module-card.active .module-toggle::after {
+            left: 17px;
+            background: #fff;
+        }
+
+        .settings-panel {
+            flex: 0.8;
+            background: var(--bg-settings);
+            border-left: 1px solid var(--border-color);
+            padding: 0 22px 22px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .settings-panel::-webkit-scrollbar { width: 3px; }
+        .settings-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 3px; }
+
+        .settings-title-area {
+            padding: 14px 0 16px;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 18px;
+        }
+
+        .settings-subtitle {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--accent-primary);
+            margin-bottom: 3px;
+        }
+
+        .settings-title { font-size: 17px; font-weight: 700; }
+
+        .setting-row { margin-bottom: 18px; }
+
+        .setting-label-area {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 7px;
+        }
+
+        .setting-name { font-size: 12.5px; font-weight: 500; color: #a8b0c8; }
+
+        .setting-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--accent-primary);
+        }
+
+        .slider-bar-bg {
+            height: 4px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 2px;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .slider-bar-fill {
+            position: absolute;
+            left: 0; top: 0; height: 100%;
+            background: linear-gradient(90deg, var(--accent-secondary), var(--accent-primary));
+            border-radius: 2px;
+            box-shadow: 0 0 6px rgba(0,198,255,0.2);
+        }
+
+        .slider-handle {
+            position: absolute;
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            background: #fff;
+            top: -4px;
+            margin-left: -6px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+            cursor: grab;
+            transition: transform 0.1s ease;
+        }
+
+        .slider-handle:hover { transform: scale(1.15); }
+
+        .dropdown-box {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border-color);
+            border-radius: 7px;
+            padding: 9px 13px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            font-size: 12.5px;
+        }
+
+        .dropdown-box:hover {
+            background: rgba(255,255,255,0.06);
+            border-color: rgba(255,255,255,0.1);
+        }
+
+        .dropdown-arrow {
+            width: 8px; height: 8px;
+            border-left: 1.5px solid var(--text-muted);
+            border-bottom: 1.5px solid var(--text-muted);
+            transform: rotate(-45deg);
+            margin-top: -3px;
+        }
+
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            padding: 4px 0;
+        }
+
+        .checkbox-box {
+            width: 16px; height: 16px;
+            border: 1.5px solid rgba(255,255,255,0.1);
+            border-radius: 4px;
+            transition: all 0.2s ease;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .checkbox-container.checked .checkbox-box {
+            background: var(--accent-primary);
+            border-color: transparent;
+            box-shadow: 0 0 6px var(--accent-glow);
+        }
+
+        .checkbox-container.checked .checkbox-box::after {
+            content: '';
+            position: absolute;
+            left: 4.5px; top: 1.5px;
+            width: 4px; height: 7px;
+            border: solid #fff;
+            border-width: 0 1.5px 1.5px 0;
+            transform: rotate(45deg);
+        }
+
+        .keybind-box {
+            background: rgba(255,255,255,0.03);
+            border: 1px dashed rgba(255,255,255,0.08);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--text-muted);
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .keybind-box:hover {
+            border-color: var(--accent-primary);
+            color: var(--text-main);
+        }
+
+        .friend-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(255,255,255,0.025);
+            border: 1px solid var(--border-color);
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+        }
+
+        .friend-remove {
+            color: #ff4a5a;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 11px;
+        }
+
+        .custom-input {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border-color);
+            border-radius: 7px;
+            padding: 8px 14px;
+            color: var(--text-main);
+            font-family: inherit;
+            font-size: 12px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .custom-input:focus { border-color: rgba(0,198,255,0.4); }
+        .custom-input::placeholder { color: var(--text-muted); }
+
+        .action-btn {
+            background: rgba(0,198,255,0.08);
+            border: 1px solid rgba(0,198,255,0.22);
+            border-radius: 7px;
+            padding: 8px 16px;
+            color: var(--accent-primary);
+            font-family: inherit;
+            font-weight: 600;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .action-btn:hover { background: rgba(0,198,255,0.15); }
+
+        .input-bar { display: flex; gap: 8px; align-items: center; }
+    </style>
+</head>
+<body>
+
+    <div class="gui-frame">
+        <!-- Top Title Bar Simulated -->
+        <div class="window-header">
+            <div class="window-title">Dragonite UI</div>
+            <div class="search-bar-wrapper">
+                <svg class="search-icon-svg" viewBox="0 0 24 24">
+                    <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                </svg>
+                <input type="text" class="search-bar" placeholder="Search modules..." oninput="handleSearch(this.value)">
+            </div>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-muted);">v2.0-BETA</div>
+        </div>
+
+        <!-- Sidebar Category Navigation -->
+        <div class="sidebar" id="categories-nav">
+            <!-- Nav buttons dynamically built -->
+        </div>
+
+        <!-- Central Work Area -->
+        <div class="main-container" id="workspace-container">
+            <!-- Workspace screens dynamically injected -->
+        </div>
+    </div>
+
+    <script>
+        // Exact active module registry verified directly from config initialization files
+        const clientData = {
+            modules: [
+                // COMBAT
+                {
+                    name: "TriggerBot",
+                    desc: "Hits for you when your crosshair is on someone.",
+                    active: true,
+                    category: "Combat",
+                    settings: [
+                        { name: "Delay", type: "slider", min: 0.0, max: 1000.0, val: 585.0, step: 1.0, suffix: "ms" },
+                        { name: "Crit Only", type: "checkbox", val: false },
+                        { name: "Hit While Eating", type: "checkbox", val: false },
+                        { name: "Target Filter", type: "dropdown", val: "All", options: ["All", "Players", "Mobs"] }
+                    ]
+                },
+                {
+                    name: "AimAssist",
+                    desc: "Pulls your crosshair toward enemies in your FOV.",
+                    active: false,
+                    category: "Combat",
+                    settings: [
+                        { name: "Mode", type: "dropdown", val: "Smooth", options: ["Smooth", "Blatant", "Screenshare"] },
+                        { name: "Speed", type: "slider", min: 1.0, max: 10.0, val: 5.5, step: 0.5, suffix: "" },
+                        { name: "Acceleration", type: "slider", min: 0.01, max: 1.0, val: 0.35, step: 0.01, suffix: "" },
+                        { name: "Range", type: "slider", min: 5.0, max: 35.0, val: 20.0, step: 1.0, suffix: "m" },
+                        { name: "FOV", type: "slider", min: 15.0, max: 360.0, val: 100.0, step: 5.0, suffix: "°" },
+                        { name: "Aim Height", type: "slider", min: 0.0, max: 1.0, val: 0.55, step: 0.05, suffix: "" },
+                        { name: "Multipoint", type: "checkbox", val: false },
+                        { name: "Elytra Tracking", type: "checkbox", val: true },
+                        { name: "Through Walls", type: "checkbox", val: false },
+                        { name: "Target Lock", type: "checkbox", val: true },
+                        { name: "Slot Lock", type: "checkbox", val: false }
+                    ]
+                },
+                {
+                    name: "AntiBot",
+                    desc: "Detects and ignores fake player entities spawned by anti-cheats.",
+                    active: false,
+                    category: "Combat",
+                    settings: [
+                        { name: "Standing Check", type: "checkbox", val: true }
+                    ]
+                },
+                {
+                    name: "Hitbox",
+                    desc: "Expands enemy hitboxes so your crosshair and attacks connect more easily.",
+                    active: true,
+                    category: "Combat",
+                    settings: [
+                        { name: "Width", type: "slider", min: 0.0, max: 2000.0, val: 0.0, step: 1.0, suffix: "%" },
+                        { name: "Height", type: "slider", min: 0.0, max: 1000.0, val: 0.0, step: 1.0, suffix: "%" },
+                        { name: "Show Outline", type: "checkbox", val: true },
+                        { name: "Keybind", type: "keybind", val: "NONE" }
+                    ]
+                },
+                {
+                    name: "StaticHitboxes",
+                    desc: "Standing hitbox size configuration for Elytra players.",
+                    active: false,
+                    category: "Combat",
+                    settings: []
+                },
+                {
+                    name: "Reach",
+                    desc: "Extends how far you can hit entities and harvest blocks.",
+                    active: false,
+                    category: "Combat",
+                    settings: [
+                        { name: "Reach Distance", type: "slider", min: 3.0, max: 7.0, val: 3.0, step: 0.01, suffix: "m" }
+                    ]
+                },
+                {
+                    name: "ShieldBreaker",
+                    desc: "Swaps to axe and hits players blocking with a shield, then swaps back.",
+                    active: false,
+                    category: "Combat",
+                    settings: []
+                },
+                {
+                    name: "NoMiss",
+                    desc: "Removes attack delay penalties when you miss an entity.",
+                    active: true,
+                    category: "Combat",
+                    settings: []
+                },
+                {
+                    name: "Criticals",
+                    desc: "Turns hits on players into critical hits.",
+                    active: false,
+                    category: "Combat",
+                    settings: []
+                },
+                {
+                    name: "AutoTotem",
+                    desc: "Keeps a totem in your offhand slot.",
+                    active: true,
+                    category: "Combat",
+                    settings: []
+                },
+
+                // MOVEMENT
+                {
+                    name: "Sprint",
+                    desc: "Normal = auto sprint while moving. Keep Sprint = no slowdown after attacking.",
+                    active: true,
+                    category: "Movement",
+                    settings: [
+                        { name: "Mode", type: "dropdown", val: "Normal", options: ["Normal", "Keep Sprint"] }
+                    ]
+                },
+                {
+                    name: "SnapTap",
+                    desc: "Last movement key wins when opposing movement keys are held.",
+                    active: false,
+                    category: "Movement",
+                    settings: []
+                },
+                {
+                    name: "WTap",
+                    desc: "Briefly releases W after a hit while sprinting to reset combo timing.",
+                    active: false,
+                    category: "Movement",
+                    settings: []
+                },
+                {
+                    name: "Shift Tap",
+                    desc: "Briefly sneaks on hit to reset sprint and improve combo knockback.",
+                    active: false,
+                    category: "Movement",
+                    settings: []
+                },
+                {
+                    name: "No Jump Delay",
+                    desc: "Remove jump cooldown for fast bridging.",
+                    active: false,
+                    category: "Movement",
+                    settings: []
+                },
+                {
+                    name: "Auto Walk",
+                    desc: "Holds movement keys for you automatically.",
+                    active: false,
+                    category: "Movement",
+                    settings: []
+                },
+                {
+                    name: "Auto Parkour",
+                    desc: "Automatically jumps when reaching block edges.",
+                    active: false,
+                    category: "Movement",
+                    settings: []
+                },
+                {
+                    name: "FastBridge",
+                    desc: "Auto-sneaks at edges while holding blocks (godbridge assist).",
+                    active: false,
+                    category: "Movement",
+                    settings: [
+                        { name: "Auto Place", type: "checkbox", val: true }
+                    ]
+                },
+                {
+                    name: "AutoFirework",
+                    desc: "Elytra firework boost without hotbar slot change.",
+                    active: false,
+                    category: "Movement",
+                    settings: []
+                },
+                {
+                    name: "Freecam",
+                    desc: "Fly the camera while your player body stays in the world.",
+                    active: false,
+                    category: "Movement",
+                    settings: []
+                },
+                {
+                    name: "AirStuck",
+                    desc: "Freezes position in mid-air by buffering movement vectors.",
+                    active: false,
+                    category: "Movement",
+                    settings: []
+                },
+                {
+                    name: "AntiCobweb",
+                    desc: "Prevents cobwebs from slowing down player movement.",
+                    active: true,
+                    category: "Movement",
+                    settings: []
+                },
+                {
+                    name: "No Fall",
+                    desc: "Prevents fall damage by spoofing ground status.",
+                    active: true,
+                    category: "Movement",
+                    settings: []
+                },
+                {
+                    name: "Velocity",
+                    desc: "Control knockback ratios from incoming attacks.",
+                    active: false,
+                    category: "Movement",
+                    settings: []
+                },
+                {
+                    name: "Elytra Boost",
+                    desc: "Injects stronger boost variables while gliding with Elytras.",
+                    active: false,
+                    category: "Movement",
+                    settings: []
+                },
+                {
+                    name: "Force Elytra Bug",
+                    desc: "Force elytra glide status while airborne.",
+                    active: false,
+                    category: "Movement",
+                    settings: []
+                },
+                {
+                    name: "Boat Fly",
+                    desc: "Fly while riding a boat. WASD to move, Space up, Shift down.",
+                    active: false,
+                    category: "Movement",
+                    settings: []
+                },
+                {
+                    name: "Elytra Fly",
+                    desc: "Fly with Elytra using custom controls and speed vectors.",
+                    active: false,
+                    category: "Movement",
+                    settings: []
+                },
+                {
+                    name: "Fly",
+                    desc: "Creative mode style flight controls.",
+                    active: false,
+                    category: "Movement",
+                    settings: []
+                },
+                {
+                    name: "Auto Respawn",
+                    desc: "Automatically respawns when you die and logs coordinate points.",
+                    active: false,
+                    category: "Movement",
+                    settings: []
+                },
+
+                // RENDER
+                {
+                    name: "AspectRatio",
+                    desc: "Change screen aspect ratio offsets.",
+                    active: false,
+                    category: "Render",
+                    settings: []
+                },
+                {
+                    name: "FullBright",
+                    desc: "Gamma level rendering override.",
+                    active: true,
+                    category: "Render",
+                    settings: []
+                },
+                {
+                    name: "NoHurtCam",
+                    desc: "Removes default hurt camera shaking animations.",
+                    active: true,
+                    category: "Render",
+                    settings: []
+                },
+                {
+                    name: "Hitsound",
+                    desc: "Plays custom sounds on successful entity hits.",
+                    active: false,
+                    category: "Render",
+                    settings: []
+                },
+
+                // VISUALS
+                {
+                    name: "Array List",
+                    desc: "Enabled modules waterfall list overlay.",
+                    active: true,
+                    category: "Visuals",
+                    settings: []
+                },
+                {
+                    name: "Bubbles",
+                    desc: "Info pills drawn at the top of the display screen.",
+                    active: true,
+                    category: "Visuals",
+                    settings: []
+                },
+                {
+                    name: "Crosshair",
+                    desc: "Enables customizable screen crosshair grids.",
+                    active: false,
+                    category: "Visuals",
+                    settings: []
+                },
+                {
+                    name: "TargetHUD",
+                    desc: "Premium target stats info card overlay.",
+                    active: true,
+                    category: "Visuals",
+                    settings: []
+                },
+                {
+                    name: "DirectionArrows",
+                    desc: "Arrows pointing towards entities drawn next to crosshair.",
+                    active: false,
+                    category: "Visuals",
+                    settings: []
+                },
+                {
+                    name: "ESP",
+                    desc: "Player & mob hitbox ESP outlines.",
+                    active: true,
+                    category: "Visuals",
+                    settings: []
+                },
+                {
+                    name: "TargetESP",
+                    desc: "Ghost-style persistent target box highlighting.",
+                    active: true,
+                    category: "Visuals",
+                    settings: []
+                },
+                {
+                    name: "Skeleton ESP",
+                    desc: "Bone structure wireframe lines drawn on players.",
+                    active: false,
+                    category: "Visuals",
+                    settings: []
+                },
+                {
+                    name: "Tracers",
+                    desc: "Visual pointer lines connecting to nearby entities.",
+                    active: false,
+                    category: "Visuals",
+                    settings: []
+                },
+                {
+                    name: "Prediction",
+                    desc: "Projectiles flight path calculation indicator overlay.",
+                    active: false,
+                    category: "Visuals",
+                    settings: []
+                },
+                {
+                    name: "Jump Particles",
+                    desc: "Outline particles drawn when jumping.",
+                    active: false,
+                    category: "Visuals",
+                    settings: []
+                },
+                {
+                    name: "View Model",
+                    desc: "Hand item coordinate placement offsets.",
+                    active: false,
+                    category: "Visuals",
+                    settings: []
+                },
+                {
+                    name: "China hat",
+                    desc: "China hat render styling placed on players.",
+                    active: false,
+                    category: "Visuals",
+                    settings: []
+                },
+                {
+                    name: "Trails",
+                    desc: "Smooth aesthetic ribbon lines trailing the player.",
+                    active: false,
+                    category: "Visuals",
+                    settings: []
+                },
+                {
+                    name: "Custom Fog",
+                    desc: "Fog parameters modification tool.",
+                    active: false,
+                    category: "Visuals",
+                    settings: []
+                },
+                {
+                    name: "FakeGhost",
+                    desc: "Shows a fake totem pop when taking critical damage.",
+                    active: false,
+                    category: "Visuals",
+                    settings: []
+                },
+
+                // PLAYER
+                {
+                    name: "Auto Tool",
+                    desc: "Automatically selects the best harvest tool for pointed blocks.",
+                    active: true,
+                    category: "Player",
+                    settings: []
+                },
+                {
+                    name: "Fast Place",
+                    desc: "Overrides local place delays to drop blocks/items faster.",
+                    active: false,
+                    category: "Player",
+                    settings: []
+                },
+                {
+                    name: "QuickEXP",
+                    desc: "Rapidly throws experience bottles while holding use inputs.",
+                    active: false,
+                    category: "Player",
+                    settings: []
+                },
+                {
+                    name: "ChestStealer",
+                    desc: "Instantly grabs all items inside containers into inventory slots.",
+                    active: false,
+                    category: "Player",
+                    settings: []
+                },
+                {
+                    name: "AC Detect",
+                    desc: "Tries to recognize server anti-cheat setups from ping IDs.",
+                    active: false,
+                    category: "Player",
+                    settings: []
+                },
+                {
+                    name: "AntiResourcePack",
+                    desc: "Ignores forced download requirements of server resource packs.",
+                    active: false,
+                    category: "Player",
+                    settings: []
+                },
+
+                // MISC
+                {
+                    name: "Toggle Friends",
+                    desc: "Shift right-click players to register them as friends.",
+                    active: true,
+                    category: "Misc",
+                    settings: [
+                        { name: "Chat Notify", type: "checkbox", val: true },
+                        { name: "Friend list", type: "friendlist" }
+                    ]
+                },
+                {
+                    name: "AntiCrasher",
+                    desc: "Filters out exploit packets designed to crash game clients.",
+                    active: true,
+                    category: "Misc",
+                    settings: []
+                },
+                {
+                    name: "NameProtect",
+                    desc: "Replaces your client display name with a custom spoofed string.",
+                    active: false,
+                    category: "Misc",
+                    settings: []
+                },
+                {
+                    name: "NickHider",
+                    desc: "Keeps your username completely hidden in chat feeds.",
+                    active: false,
+                    category: "Misc",
+                    settings: []
+                },
+
+                {
+                    name: "SelfDestruct",
+                    desc: "Instantly deletes all files and footprints of this client.",
+                    active: false,
+                    category: "Misc",
+                    settings: []
+                }
+            ],
+            friends: ["drakpro6679", "Notch", "SkeetUser"]
+        };
+
+        const navCategories = [
+            { id: "Combat", label: "Combat", icon: `<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>` },
+            { id: "Movement", label: "Movement", icon: `<svg viewBox="0 0 24 24"><path d="M12 2L2 22h20L12 2zm0 3.99L19.53 19H4.47L12 5.99zM13 16h-2v2h2v-2zm0-6h-2v4h2v-4z"/></svg>` },
+            { id: "Visuals", label: "Visuals", icon: `<svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>` },
+            { id: "Render", label: "Render", icon: `<svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>` },
+            { id: "Player", label: "Player", icon: `<svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>` },
+            { id: "Misc", label: "Misc", icon: `<svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>` },
+            { id: "Friends", label: "Friends", icon: `<svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>` },
+            { id: "Configs", label: "Configs", icon: `<svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM19 18H6c-2.21 0-4-1.79-4-4 0-2.05 1.53-3.76 3.56-3.97l1.07-.11.5-.95C8.08 7.14 9.94 6 12 6c2.62 0 4.88 1.86 5.39 4.43l.3 1.5 1.53.11c1.56.1 2.78 1.41 2.78 2.96 0 1.65-1.35 3-3 3z"/></svg>` }
+        ];
+
+        let activeTab = "Combat";
+        let selectedModuleIndex = 0;
+
+        function renderSidebar() {
+            const sidebar = document.getElementById("categories-nav");
+            sidebar.innerHTML = "";
+            let dividerAdded = false;
+            navCategories.forEach(cat => {
+                if ((cat.id === "Friends" || cat.id === "Configs") && !dividerAdded) {
+                    const div = document.createElement("div");
+                    div.className = "sidebar-divider";
+                    sidebar.appendChild(div);
+                    dividerAdded = true;
+                }
+                const button = document.createElement("div");
+                button.className = `nav-item ${cat.id === activeTab ? 'active' : ''}`;
+                button.innerHTML = `${cat.icon} <span>${cat.label}</span>`;
+                button.addEventListener("click", () => {
+                    activeTab = cat.id;
+                    selectedModuleIndex = 0;
+                    renderSidebar();
+                    renderWorkspace();
+                });
+                sidebar.appendChild(button);
+            });
+        }
+
+        function renderWorkspace() {
+            const container = document.getElementById("workspace-container");
+            container.innerHTML = "";
+
+            if (activeTab === "Friends") {
+                container.innerHTML = `
+                    <div class="modules-section" style="grid-column: 1/3; display: flex; flex-direction: column; gap: 16px;">
+                        <div class="settings-subtitle">Friend Manager</div>
+                        <div class="input-bar" style="margin-bottom: 10px;">
+                            <input type="text" placeholder="Add Friend name" class="custom-input" id="friend-add-input" style="padding: 10px 16px; font-size:13px; width: 250px;">
+                            <button class="action-btn" id="friend-add-btn" style="padding: 10px 20px; font-size:13px;">Add Friend</button>
+                        </div>
+                        <div id="friends-box-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;"></div>
+                    </div>
+                `;
+                
+                const boxCont = container.querySelector("#friends-box-container");
+                const inputEl = container.querySelector("#friend-add-input");
+                const addBtn  = container.querySelector("#friend-add-btn");
+
+                const redrawFriends = () => {
+                    boxCont.innerHTML = "";
+                    clientData.friends.forEach((name, fIdx) => {
+                        const fRow = document.createElement("div");
+                        fRow.className = "friend-row";
+                        fRow.style.background = "var(--bg-card)";
+                        fRow.style.border = "1px solid var(--border-color)";
+                        fRow.style.borderRadius = "8px";
+                        fRow.style.padding = "12px 16px";
+                        fRow.style.display = "flex";
+                        fRow.style.justifyContent = "space-between";
+                        fRow.style.alignItems = "center";
+                        fRow.innerHTML = `
+                            <span style="font-weight: 500;">${name}</span>
+                            <span class="friend-remove" data-idx="${fIdx}" style="color: #ff4a5a; cursor: pointer; font-size: 12px; font-weight: 600;">Remove</span>
+                        `;
+                        fRow.querySelector(".friend-remove").addEventListener("click", () => {
+                            clientData.friends.splice(fIdx, 1);
+                            redrawFriends();
+                        });
+                        boxCont.appendChild(fRow);
+                    });
+                };
+
+                addBtn.addEventListener("click", () => {
+                    if (inputEl.value.trim()) {
+                        clientData.friends.push(inputEl.value.trim());
+                        inputEl.value = "";
+                        redrawFriends();
+                    }
+                });
+
+                redrawFriends();
+                return;
+            }
+
+            if (activeTab === "Configs") {
+                container.innerHTML = `
+                    <div class="modules-section" style="grid-column: 1/3; display: flex; flex-direction: column; gap: 16px;">
+                        <div class="settings-subtitle">Config Profiles</div>
+                        <div class="input-bar" style="margin-bottom: 10px;">
+                            <input type="text" placeholder="Profile name" class="custom-input" id="config-name-input" style="padding: 10px 16px; font-size:13px; width: 250px;">
+                            <button class="action-btn" id="config-create-btn" style="padding: 10px 20px; font-size:13px;">Save New Config</button>
+                        </div>
+                        <div id="configs-box-container" style="display: flex; flex-direction: column; gap: 10px;">
+                            <div class="friend-row" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-weight: 500;">default_profile</span>
+                                <div style="display: flex; gap: 14px;">
+                                    <span style="color: var(--accent-primary); cursor: pointer; font-size: 13px; font-weight: 600;">Load</span>
+                                    <span style="color: var(--text-muted); font-size: 13px;">Delete</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = `
+                <div class="modules-section" id="modules-list"></div>
+                <div class="settings-panel">
+                    <div class="settings-title-area">
+                        <div class="settings-subtitle" id="current-category">Module Options</div>
+                        <div class="settings-title" id="selected-module-title">---</div>
+                    </div>
+                    <div id="settings-container"></div>
+                </div>
+            `;
+            renderCategoryModules();
+        }
+
+        function renderCategoryModules() {
+            const filteredMods = clientData.modules.filter(m => m.category === activeTab);
+            const list = document.getElementById("modules-list");
+            list.innerHTML = "";
+
+            if (filteredMods.length === 0) {
+                list.innerHTML = `<div style="grid-column: 1/3; color: var(--text-muted); text-align: center; margin-top: 40px;">No active modules in this category.</div>`;
+                return;
+            }
+
+            filteredMods.forEach((mod, idx) => {
+                const card = document.createElement("div");
+                card.className = `module-card ${mod.active ? 'active' : ''}`;
+                if (idx === selectedModuleIndex) {
+                    card.style.borderColor = "var(--accent-primary)";
+                    card.style.background = "var(--bg-card-hover)";
+                }
+
+                card.innerHTML = `
+                    <div class="module-header">
+                        <span class="module-name">${mod.name}</span>
+                        <div class="module-toggle"></div>
+                    </div>
+                    <div class="module-description">${mod.desc}</div>
+                `;
+
+                card.querySelector(".module-toggle").addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    mod.active = !mod.active;
+                    renderCategoryModules();
+                });
+
+                card.addEventListener("click", () => {
+                    selectedModuleIndex = idx;
+                    renderCategoryModules();
+                    renderSettings(mod);
+                });
+
+                list.appendChild(card);
+            });
+
+            if (filteredMods[selectedModuleIndex]) {
+                renderSettings(filteredMods[selectedModuleIndex]);
+            }
+        }
+
+        function renderSettings(mod) {
+            document.getElementById("selected-module-title").innerText = mod.name;
+            const container = document.getElementById("settings-container");
+            container.innerHTML = "";
+
+            if (!mod.settings || mod.settings.length === 0) {
+                container.innerHTML = `<div style="color: var(--text-muted); font-size: 13px; text-align: center; padding-top: 30px;">No configurable settings for this module.</div>`;
+                return;
+            }
+
+            mod.settings.forEach(set => {
+                const row = document.createElement("div");
+                row.className = "setting-row";
+
+                if (set.type === "slider") {
+                    const pct = ((set.val - set.min) / (set.max - set.min)) * 100;
+                    row.innerHTML = `
+                        <div class="setting-label-area">
+                            <span class="setting-name">${set.name}</span>
+                            <span class="setting-value">${set.val.toFixed(set.step >= 1 ? 0 : 1)}${set.suffix}</span>
+                        </div>
+                        <div class="slider-bar-bg">
+                            <div class="slider-bar-fill" style="width: ${pct}%"></div>
+                            <div class="slider-handle" style="left: ${pct}%"></div>
+                        </div>
+                    `;
+
+                    const barBg = row.querySelector(".slider-bar-bg");
+                    const fill = row.querySelector(".slider-bar-fill");
+                    const handle = row.querySelector(".slider-handle");
+                    const valText = row.querySelector(".setting-value");
+
+                    const updateVal = (e) => {
+                        const rect = barBg.getBoundingClientRect();
+                        let pos = (e.clientX - rect.left) / rect.width;
+                        pos = Math.max(0, Math.min(1, pos));
+                        let calcVal = set.min + pos * (set.max - set.min);
+                        calcVal = Math.round(calcVal / set.step) * set.step;
+                        set.val = calcVal;
+                        
+                        const actualPct = ((calcVal - set.min) / (set.max - set.min)) * 100;
+                        fill.style.width = actualPct + "%";
+                        handle.style.left = actualPct + "%";
+                        valText.innerText = calcVal.toFixed(set.step >= 1 ? 0 : 1) + set.suffix;
+                    };
+
+                    barBg.addEventListener("mousedown", (e) => {
+                        updateVal(e);
+                        const move = (de) => updateVal(de);
+                        const up = () => {
+                            window.removeEventListener("mousemove", move);
+                            window.removeEventListener("mouseup", up);
+                        };
+                        window.addEventListener("mousemove", move);
+                        window.addEventListener("mouseup", up);
+                    });
+
+                } else if (set.type === "dropdown") {
+                    row.innerHTML = `
+                        <div class="setting-label-area">
+                            <span class="setting-name">${set.name}</span>
+                        </div>
+                        <div class="dropdown-box">
+                            <span>${set.val}</span>
+                            <div class="dropdown-arrow"></div>
+                        </div>
+                    `;
+
+                    const box = row.querySelector(".dropdown-box");
+                    box.addEventListener("click", () => {
+                        let curIdx = set.options.indexOf(set.val);
+                        let nextIdx = (curIdx + 1) % set.options.length;
+                        set.val = set.options[nextIdx];
+                        box.querySelector("span").innerText = set.val;
+                    });
+
+                } else if (set.type === "checkbox") {
+                    row.innerHTML = `
+                        <div class="checkbox-container ${set.val ? 'checked' : ''}">
+                            <span class="setting-name">${set.name}</span>
+                            <div class="checkbox-box"></div>
+                        </div>
+                    `;
+                    const check = row.querySelector(".checkbox-container");
+                    check.addEventListener("click", () => {
+                        set.val = !set.val;
+                        check.classList.toggle("checked");
+                    });
+
+                } else if (set.type === "keybind") {
+                    row.innerHTML = `
+                        <div class="setting-label-area">
+                            <span class="setting-name">${set.name}</span>
+                        </div>
+                        <div class="keybind-box">${set.val}</div>
+                    `;
+                }
+
+                container.appendChild(row);
+            });
+        }
+
+        function handleSearch(query) {
+            const lower = query.toLowerCase().trim();
+            const list = document.getElementById("modules-list");
+            if (!list) return;
+
+            const filteredMods = clientData.modules.filter(m => 
+                (m.category === activeTab || lower !== "") && 
+                (m.name.toLowerCase().includes(lower) || m.desc.toLowerCase().includes(lower))
+            );
+
+            list.innerHTML = "";
+            if (filteredMods.length === 0) {
+                list.innerHTML = `<div style="grid-column: 1/3; color: var(--text-muted); text-align: center; margin-top: 40px;">No modules match your search.</div>`;
+                return;
+            }
+
+            filteredMods.forEach((mod, idx) => {
+                const card = document.createElement("div");
+                card.className = `module-card ${mod.active ? 'active' : ''}`;
+                if (idx === selectedModuleIndex) {
+                    card.style.borderColor = "var(--accent-primary)";
+                    card.style.background = "var(--bg-card-hover)";
+                }
+
+                card.innerHTML = `
+                    <div class="module-header">
+                        <span class="module-name">${mod.name}</span>
+                        <div class="module-toggle"></div>
+                    </div>
+                    <div class="module-description">${mod.desc}</div>
+                `;
+
+                card.querySelector(".module-toggle").addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    mod.active = !mod.active;
+                    handleSearch(query);
+                });
+
+                card.addEventListener("click", () => {
+                    selectedModuleIndex = idx;
+                    handleSearch(query);
+                    renderSettings(mod);
+                });
+
+                list.appendChild(card);
+            });
+
+            if (filteredMods[selectedModuleIndex]) {
+                renderSettings(filteredMods[selectedModuleIndex]);
+            } else {
+                document.getElementById("selected-module-title").innerText = "---";
+                document.getElementById("settings-container").innerHTML = "";
+            }
+        }
+
+        // Initialize App
+        renderSidebar();
+        renderWorkspace();
+    </script>
+</body>
+</html>

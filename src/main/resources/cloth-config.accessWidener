@@ -1,0 +1,22 @@
+accessWidener	v2	named
+
+accessible	class	net/minecraft/client/render/RenderLayer$MultiPhase
+accessible	method	net/minecraft/client/render/RenderLayer$MultiPhase	getPhases	()Lnet/minecraft/client/render/RenderLayer$MultiPhaseParameters;
+
+accessible	class	net/minecraft/client/render/RenderLayer$MultiPhaseParameters
+accessible	field	net/minecraft/client/render/RenderLayer$MultiPhaseParameters	texture	Lnet/minecraft/client/render/RenderPhase$TextureBase;
+
+accessible	class	net/minecraft/client/render/RenderPhase$Texture
+accessible	field	net/minecraft/client/render/RenderPhase$Texture	id	Ljava/util/Optional;
+
+accessible	field	net/minecraft/client/render/RenderPhase	ALWAYS_DEPTH_TEST	Lnet/minecraft/client/render/RenderPhase$DepthTest;
+accessible	field	net/minecraft/client/render/RenderPhase	COLOR_MASK	Lnet/minecraft/client/render/RenderPhase$WriteMaskState;
+accessible	field	net/minecraft/client/render/RenderPhase	DISABLE_CULLING	Lnet/minecraft/client/render/RenderPhase$Cull;
+accessible	field	net/minecraft/client/render/RenderPhase	ENABLE_LIGHTMAP	Lnet/minecraft/client/render/RenderPhase$Lightmap;
+accessible	field	net/minecraft/client/render/RenderPhase	ENABLE_OVERLAY_COLOR	Lnet/minecraft/client/render/RenderPhase$Overlay;
+accessible	field	net/minecraft/client/render/RenderPhase	ENTITY_TRANSLUCENT_PROGRAM	Lnet/minecraft/client/render/RenderPhase$ShaderProgram;
+accessible	field	net/minecraft/client/render/RenderPhase	TRANSLUCENT_TRANSPARENCY	Lnet/minecraft/client/render/RenderPhase$Transparency;
+
+accessible	class	net/minecraft/client/render/RenderPhase
+accessible	class	net/minecraft/client/render/RenderPhase$DepthTest
+accessible	method	net/minecraft/client/render/RenderPhase	startDrawing	()V

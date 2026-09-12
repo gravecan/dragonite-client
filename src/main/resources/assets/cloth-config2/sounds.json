@@ -1,0 +1,90 @@
+{
+  "ui.en": {
+    "sounds": [
+      {
+        "name": "cloth-config2:ui/en",
+        "stream": false
+      }
+    ]
+  },
+  "ui.dis": {
+    "sounds": [
+      {
+        "name": "cloth-config2:ui/dis",
+        "stream": false
+      }
+    ]
+  },
+  "ui.scroll": {
+    "sounds": [
+      {
+        "name": "cloth-config2:ui/scroll",
+        "stream": false
+      }
+    ]
+  },
+  "ui.warn": {
+    "sounds": [
+      {
+        "name": "cloth-config2:ui/warn",
+        "stream": false
+      }
+    ]
+  },
+  "ui.event": {
+    "sounds": [
+      {
+        "name": "cloth-config2:ui/event",
+        "stream": false
+      }
+    ]
+  },
+  "hit.bell": {
+    "sounds": [
+      {
+        "name": "cloth-config2:hit/bell",
+        "stream": false
+      }
+    ]
+  },
+  "hit.magic": {
+    "sounds": [
+      {
+        "name": "cloth-config2:hit/magic",
+        "stream": false
+      }
+    ]
+  },
+  "hit.pew": {
+    "sounds": [
+      {
+        "name": "cloth-config2:hit/pew",
+        "stream": false
+      }
+    ]
+  },
+  "hit.phew": {
+    "sounds": [
+      {
+        "name": "cloth-config2:hit/phew",
+        "stream": false
+      }
+    ]
+  },
+  "hit.run": {
+    "sounds": [
+      {
+        "name": "cloth-config2:hit/run",
+        "stream": false
+      }
+    ]
+  },
+  "kill.kill": {
+    "sounds": [
+      {
+        "name": "cloth-config2:kill/kill",
+        "stream": false
+      }
+    ]
+  }
+}

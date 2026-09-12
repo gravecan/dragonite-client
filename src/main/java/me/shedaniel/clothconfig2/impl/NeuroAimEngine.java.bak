@@ -1,0 +1,647 @@
+package me.shedaniel.clothconfig2.impl;
+
+import me.shedaniel.clothconfig2.impl.aura.CombatTargetSelector;
+import net.minecraft.class_1657;
+import net.minecraft.class_243;
+import net.minecraft.class_310;
+import net.minecraft.class_3532;
+import net.minecraft.class_3966;
+import net.minecraft.class_4184;
+import net.minecraft.class_746;
+import org.lwjgl.glfw.GLFW;
+
+public final class NeuroAimEngine {
+   public static final String MODE_SMOOTH = "Smooth";
+   public static final String MODE_BLATANT = "Blatant";
+   public static final String COUPLING_WITH_PLAYER = "With Player";
+   public static final String COUPLING_ALWAYS = "Always";
+   public static final String COUPLING_AFTER_IDLE = "After Idle";
+   private static final double CLOSE_RANGE = 2.0;
+   private static final long INPUT_GRACE_MS = 350L;
+   private static final long SWITCH_GRACE_MS = 220L;
+   private static final float STABLE_LOCK_THRESHOLD = 0.92F;
+   private int currentTargetId = -1;
+   private boolean trackingActive;
+   private boolean wasEnabled;
+   private boolean blatantActive;
+   private float desiredYaw;
+   private float desiredPitch;
+   private float smoothedDesiredYaw;
+   private float smoothedDesiredPitch;
+   private float smoothVelYaw;
+   private float smoothVelPitch;
+   private long switchTimer;
+   private long lastTargetSwitchMs;
+   private int lastLockedId = -1;
+   private float mpX;
+   private float mpY;
+   private float mpZ;
+   private long mpSeed;
+   private float lastTickYaw;
+   private float lastTickPitch;
+   private long lastManualInputMs;
+   private class_1657 focusTarget;
+   private class_1657 activeTarget;
+   private float lastPartial;
+   private boolean smoothStable;
+   private int stableFrames;
+   private boolean smoothedDesiredInitialized;
+
+   public void onEnabledChanged(boolean enabled) {
+      this.resetTracking();
+      this.wasEnabled = enabled;
+   }
+
+   public void resetTracking() {
+      this.currentTargetId = -1;
+      this.trackingActive = false;
+      this.blatantActive = false;
+      this.lastManualInputMs = 0L;
+      this.focusTarget = null;
+      this.activeTarget = null;
+      this.lastPartial = 0.0F;
+      this.desiredYaw = 0.0F;
+      this.desiredPitch = 0.0F;
+      this.smoothedDesiredYaw = 0.0F;
+      this.smoothedDesiredPitch = 0.0F;
+      this.smoothVelYaw = 0.0F;
+      this.smoothVelPitch = 0.0F;
+      this.switchTimer = 0L;
+      this.lastTargetSwitchMs = 0L;
+      this.lastLockedId = -1;
+      this.mpX = 0.0F;
+      this.mpY = 0.0F;
+      this.mpZ = 0.0F;
+      this.mpSeed = System.nanoTime();
+      this.smoothStable = false;
+      this.stableFrames = 0;
+      this.smoothedDesiredInitialized = false;
+      ElytraAimHelper.resetForTarget(-1);
+   }
+
+   private void clearTargetState() {
+      this.currentTargetId = -1;
+      this.trackingActive = false;
+      this.blatantActive = false;
+      this.focusTarget = null;
+      this.activeTarget = null;
+      this.smoothedDesiredInitialized = false;
+      this.smoothVelYaw = 0.0F;
+      this.smoothVelPitch = 0.0F;
+      this.smoothStable = false;
+      this.stableFrames = 0;
+   }
+
+   public void tick(class_310 client, NeuroAimEngine.Settings settings) {
+      if (!this.handleEnableState(settings)) {
+         this.trackingActive = false;
+         this.blatantActive = false;
+      } else if (!canRun(client)) {
+         this.trackingActive = false;
+         this.blatantActive = false;
+      } else {
+         class_746 player = client.field_1724;
+         this.updateManualInput(player);
+         if (settings.isSlotLock() && player.method_31548().field_7545 != class_3532.method_15340(settings.getLockedSlot(), 0, 8)) {
+            this.resetTracking();
+         } else {
+            class_1657 target = this.findBestTarget(player, settings, client);
+            if (target == null) {
+               this.clearTargetState();
+            } else {
+               boolean targetChanged = this.currentTargetId != target.method_5628();
+               if (targetChanged) {
+                  this.onTargetLocked(player, target, settings);
+               }
+
+               this.currentTargetId = target.method_5628();
+               if (settings.isFocusOnEnemy()) {
+                  this.focusTarget = target;
+               }
+
+               this.trackingActive = true;
+               this.blatantActive = "Blatant".equals(settings.getMode());
+               this.lastLockedId = target.method_5628();
+            }
+         }
+      }
+   }
+
+   public int getLockedTargetId() {
+      return this.currentTargetId;
+   }
+
+   public void applyFrame(class_310 client, NeuroAimEngine.Settings settings, float partialTick) {
+      if (!this.trackingActive || client.field_1724 == null || !settings.isEnabled()) {
+         this.lastPartial = 0.0F;
+      } else if (!canRun(client)) {
+         this.lastPartial = 0.0F;
+      } else {
+         class_746 player = client.field_1724;
+         this.updateManualInput(player);
+         class_1657 target = this.resolveTarget(player, settings, client);
+         if (target != null && target.method_5805() && !target.method_31481()) {
+            this.activeTarget = target;
+            String mode = settings.getMode();
+            if ("Blatant".equals(mode)) {
+               this.applyBlatantFrame(client, settings, player, target, partialTick);
+            } else {
+               this.applySmoothFrame(client, settings, player, target, partialTick);
+            }
+
+            this.lastPartial = partialTick;
+         } else {
+            this.clearTargetState();
+            this.lastPartial = 0.0F;
+         }
+      }
+   }
+
+   private void applySmoothFrame(class_310 client, NeuroAimEngine.Settings settings, class_746 player, class_1657 target, float partialTick) {
+      if (settings.isOnlyWhileClicking() && !isAttackHeld(client)) {
+         this.decaySmoothState(player);
+      } else if (!this.canAssistSmooth(settings, client)) {
+         this.decaySmoothState(player);
+      } else if (settings.isStopAtTarget() && isCrosshairOnTarget(client, target) && !isElytraAssist(settings, player, target)) {
+         this.syncSmoothStateToPlayer(player);
+      } else {
+         float[] desired = this.computeSmoothedDesiredAngles(player, target, partialTick, settings, client);
+         this.desiredYaw = desired[0];
+         this.desiredPitch = desired[1];
+         float lockAmount = this.getSmoothLockAmount(settings, player, target, partialTick, client);
+         if (lockAmount >= 0.92F && this.stableFrames > 4) {
+            this.applySmoothStableRotation(player, this.desiredYaw, this.desiredPitch, partialTick, settings, client);
+         } else {
+            this.applySmoothHumanRotation(player, this.desiredYaw, this.desiredPitch, partialTick, settings, client, lockAmount);
+         }
+      }
+   }
+
+   private void applyBlatantFrame(class_310 client, NeuroAimEngine.Settings settings, class_746 player, class_1657 target, float partialTick) {
+      if (!this.blatantActive) {
+         this.blatantActive = true;
+      }
+
+      this.applyGoonBlatantTrack(player, target, partialTick, settings, client);
+   }
+
+   private void onTargetLocked(class_746 player, class_1657 target, NeuroAimEngine.Settings settings) {
+      long now = System.currentTimeMillis();
+      this.switchTimer = now;
+      this.lastTargetSwitchMs = now;
+      this.lastLockedId = target.method_5628();
+      this.smoothedDesiredYaw = player.method_36454();
+      this.smoothedDesiredPitch = player.method_36455();
+      this.smoothVelYaw = 0.0F;
+      this.smoothVelPitch = 0.0F;
+      this.smoothStable = false;
+      this.stableFrames = 0;
+      this.mpX = 0.0F;
+      this.mpY = 0.0F;
+      this.mpZ = 0.0F;
+      this.mpSeed = System.nanoTime() ^ target.method_5628();
+      this.smoothedDesiredInitialized = true;
+      ElytraAimHelper.resetForTarget(target.method_5628());
+      float[] immediate = getSyncRotations(
+         getAimEyePos(player, class_310.method_1551(), 1.0F),
+         this.resolveAimPoint(player, target, settings.getAimHeight(), 1.0F, settings, class_310.method_1551())
+      );
+      this.desiredYaw = immediate[0];
+      this.desiredPitch = immediate[1];
+   }
+
+   private float[] computeSmoothedDesiredAngles(class_746 player, class_1657 target, float partialTick, NeuroAimEngine.Settings settings, class_310 client) {
+      class_243 eyePos = getAimEyePos(player, client, partialTick);
+      class_243 aimPoint = this.resolvePredictedAimPoint(player, target, settings.getAimHeight(), partialTick, settings, client);
+      float[] raw = getSyncRotations(eyePos, aimPoint);
+      float accel = class_3532.method_15363(settings.getAcceleration(), 0.01F, 1.0F);
+      float smoothFactor = 0.18F + accel * 0.38F;
+      if (isElytraAssist(settings, player, target)) {
+         smoothFactor *= ElytraAimHelper.desiredAngleSmoothScale();
+      }
+
+      if (!this.smoothedDesiredInitialized) {
+         float[] view = getViewYawPitch(client, player);
+         this.smoothedDesiredYaw = view[0];
+         this.smoothedDesiredPitch = view[1];
+         this.smoothedDesiredInitialized = true;
+      }
+
+      float yawDiff = class_3532.method_15393(raw[0] - this.smoothedDesiredYaw);
+      float pitchDiff = raw[1] - this.smoothedDesiredPitch;
+      this.smoothedDesiredYaw = class_3532.method_15393(this.smoothedDesiredYaw + yawDiff * smoothFactor);
+      this.smoothedDesiredPitch += pitchDiff * smoothFactor * 0.9F;
+      this.smoothedDesiredPitch = class_3532.method_15363(this.smoothedDesiredPitch, -90.0F, 90.0F);
+      this.desiredYaw = this.smoothedDesiredYaw;
+      this.desiredPitch = this.smoothedDesiredPitch;
+      return new float[]{this.smoothedDesiredYaw, this.smoothedDesiredPitch};
+   }
+
+   private void applySmoothHumanRotation(
+      class_746 player, float targetYaw, float targetPitch, float partialTick, NeuroAimEngine.Settings settings, class_310 client, float lockAmount
+   ) {
+      this.smoothStable = false;
+      float yaw = player.method_36454();
+      float pitch = player.method_36455();
+      float accel = class_3532.method_15363(settings.getAcceleration(), 0.01F, 1.0F);
+      float speedNorm = class_3532.method_15363(settings.getSpeed(), 1.0F, 10.0F) / 10.0F;
+      float baseFactor = 0.08F + accel * 0.42F;
+      baseFactor *= 0.65F + speedNorm * 0.55F;
+      baseFactor *= 0.55F + lockAmount * 0.55F;
+      if (this.activeTarget != null && isElytraAssist(settings, player, this.activeTarget)) {
+         baseFactor *= ElytraAimHelper.rotationBoost(player, this.activeTarget);
+      }
+
+      if (this.switchTimer > 0L) {
+         long sinceSwitch = System.currentTimeMillis() - this.switchTimer;
+         if (sinceSwitch < 220L) {
+            float ramp = (float)sinceSwitch / 220.0F;
+            baseFactor *= 0.35F + ramp * 0.65F;
+         } else {
+            this.switchTimer = 0L;
+         }
+      }
+
+      float yawDelta = class_3532.method_15393(targetYaw - yaw);
+      float pitchDelta = targetPitch - pitch;
+      this.smoothVelYaw = this.smoothVelYaw * 0.72F + yawDelta * baseFactor * 0.28F;
+      this.smoothVelPitch = this.smoothVelPitch * 0.72F + pitchDelta * baseFactor * 0.24F;
+      float microYaw = pseudoNoise(this.mpSeed, 1) * 0.06F * (1.0F - lockAmount);
+      float microPitch = pseudoNoise(this.mpSeed, 2) * 0.04F * (1.0F - lockAmount);
+      float stepYaw = this.smoothVelYaw + microYaw;
+      float stepPitch = this.smoothVelPitch + microPitch;
+      double gcd = getMouseGcd(client);
+      stepYaw = (float)quantizeGcd(stepYaw, gcd);
+      stepPitch = (float)quantizeGcd(stepPitch, gcd);
+      if (this.activeTarget != null && isElytraAssist(settings, player, this.activeTarget)) {
+         float[] capped = ElytraAimHelper.capRotationStep(stepYaw, stepPitch);
+         stepYaw = capped[0];
+         stepPitch = capped[1];
+      }
+
+      if (!(Math.abs(stepYaw) < gcd * 0.35) || !(Math.abs(stepPitch) < gcd * 0.35)) {
+         player.method_36456(yaw + stepYaw);
+         player.method_36457(class_3532.method_15363(pitch + stepPitch, -90.0F, 90.0F));
+      }
+   }
+
+   private void applySmoothStableRotation(
+      class_746 player, float targetYaw, float targetPitch, float partialTick, NeuroAimEngine.Settings settings, class_310 client
+   ) {
+      this.smoothStable = true;
+      float yaw = player.method_36454();
+      float pitch = player.method_36455();
+      float accel = class_3532.method_15363(settings.getAcceleration(), 0.01F, 1.0F);
+      float speedNorm = class_3532.method_15363(settings.getSpeed(), 1.0F, 10.0F) / 10.0F;
+      float factor = 0.14F + accel * 0.28F;
+      factor *= 0.7F + speedNorm * 0.35F;
+      if (this.activeTarget != null && isElytraAssist(settings, player, this.activeTarget)) {
+         factor *= ElytraAimHelper.rotationBoost(player, this.activeTarget);
+      }
+
+      float yawDelta = class_3532.method_15393(targetYaw - yaw);
+      float pitchDelta = targetPitch - pitch;
+      float stepYaw = yawDelta * factor;
+      float stepPitch = pitchDelta * factor * 0.88F;
+      double gcd = getMouseGcd(client);
+      stepYaw = (float)quantizeGcd(stepYaw, gcd);
+      stepPitch = (float)quantizeGcd(stepPitch, gcd);
+      if (this.activeTarget != null && isElytraAssist(settings, player, this.activeTarget)) {
+         float[] capped = ElytraAimHelper.capRotationStep(stepYaw, stepPitch);
+         stepYaw = capped[0];
+         stepPitch = capped[1];
+      }
+
+      if (!(Math.abs(stepYaw) < gcd * 0.4) || !(Math.abs(stepPitch) < gcd * 0.4)) {
+         player.method_36456(yaw + stepYaw);
+         player.method_36457(class_3532.method_15363(pitch + stepPitch, -90.0F, 90.0F));
+      }
+   }
+
+   private void applyGoonBlatantTrack(class_746 player, class_1657 target, float partialTick, NeuroAimEngine.Settings settings, class_310 client) {
+      class_243 eyePos = getAimEyePos(player, client, partialTick);
+      class_243 targetPoint = this.resolveAimPoint(player, target, settings.getAimHeight(), partialTick, settings, client);
+      if (settings.isMultipoint()) {
+         this.updateMultipointDrift(settings, partialTick);
+         targetPoint = targetPoint.method_1031(this.mpX, this.mpY, this.mpZ);
+      }
+
+      double dist = eyePos.method_1022(targetPoint);
+      float[] synced = getSyncRotations(eyePos, targetPoint);
+      float yawDelta = class_3532.method_15393(synced[0] - player.method_36454());
+      float pitchDelta = class_3532.method_15393(synced[1] - player.method_36455());
+      float response = class_3532.method_15363(settings.getSpeed(), 1.0F, 10.0F) / 10.0F;
+      float distFactor = 1.0F;
+      if (dist > 2.5) {
+         distFactor = 1.0F + (float)class_3532.method_15350((dist - 2.5) / 1.0, 0.0, 1.0);
+      }
+
+      float effectiveResponse = Math.min(1.0F, response * distFactor);
+      if (isElytraAssist(settings, player, target)) {
+         effectiveResponse = Math.min(1.0F, effectiveResponse * ElytraAimHelper.rotationBoost(player, target));
+      }
+
+      float stepYaw = yawDelta * effectiveResponse;
+      float stepPitch = pitchDelta * effectiveResponse;
+      double gcd = getMouseGcd(client);
+      stepYaw = (float)quantizeGcd(stepYaw, gcd);
+      stepPitch = (float)quantizeGcd(stepPitch, gcd);
+      if (isElytraAssist(settings, player, target)) {
+         float[] capped = ElytraAimHelper.capRotationStep(stepYaw, stepPitch);
+         stepYaw = capped[0];
+         stepPitch = capped[1];
+      }
+
+      if (!(Math.abs(stepYaw) < gcd * 0.5) || !(Math.abs(stepPitch) < gcd * 0.5)) {
+         player.method_36456(player.method_36454() + stepYaw);
+         player.method_36457(class_3532.method_15363(player.method_36455() + stepPitch, -90.0F, 90.0F));
+      }
+   }
+
+   private void updateMultipointDrift(NeuroAimEngine.Settings settings, float partialTick) {
+      this.mpSeed += 17L;
+      float driftScale = 0.045F + settings.getSpeed() * 0.004F;
+      this.mpX = this.mpX + (pseudoNoise(this.mpSeed, 3) - 0.5F) * driftScale * partialTick;
+      this.mpY = this.mpY + (pseudoNoise(this.mpSeed, 4) - 0.5F) * driftScale * 0.35F * partialTick;
+      this.mpZ = this.mpZ + (pseudoNoise(this.mpSeed, 5) - 0.5F) * driftScale * partialTick;
+      this.mpX = class_3532.method_15363(this.mpX, -0.22F, 0.22F);
+      this.mpY = class_3532.method_15363(this.mpY, -0.08F, 0.08F);
+      this.mpZ = class_3532.method_15363(this.mpZ, -0.22F, 0.22F);
+      this.mpX *= 0.94F;
+      this.mpY *= 0.92F;
+      this.mpZ *= 0.94F;
+   }
+
+   private class_243 resolvePredictedAimPoint(
+      class_746 player, class_1657 target, float aimHeightNorm, float partialTick, NeuroAimEngine.Settings settings, class_310 client
+   ) {
+      return isElytraAssist(settings, player, target)
+         ? ElytraAimHelper.getAimPoint(client, player, target, aimHeightNorm, partialTick)
+         : this.getPredictedAimPoint(target, aimHeightNorm, partialTick, settings);
+   }
+
+   private class_243 resolveAimPoint(
+      class_746 player, class_1657 target, float aimHeightNorm, float partialTick, NeuroAimEngine.Settings settings, class_310 client
+   ) {
+      return isElytraAssist(settings, player, target)
+         ? ElytraAimHelper.getAimPoint(client, player, target, aimHeightNorm, partialTick)
+         : getFocusPoint(target, aimHeightNorm, partialTick);
+   }
+
+   private static boolean isElytraAssist(NeuroAimEngine.Settings settings, class_746 player, class_1657 target) {
+      return settings.isElytraTracking() && ElytraAimHelper.shouldUse(player, target);
+   }
+
+   private class_243 getPredictedAimPoint(class_1657 target, float aimHeightNorm, float partialTick, NeuroAimEngine.Settings settings) {
+      class_243 base = getFocusPoint(target, aimHeightNorm, partialTick);
+      class_243 velocity = target.method_18798();
+      double dist = target.method_5739(class_310.method_1551().field_1724);
+      double leadTicks = 1.2 + class_3532.method_15363((float)(dist * 0.08), 0.0F, 2.5F);
+      float accelBias = class_3532.method_15363(settings.getAcceleration(), 0.01F, 1.0F);
+      leadTicks *= 0.75 + accelBias * 0.45;
+      return base.method_1031(velocity.field_1352 * leadTicks * 0.5, velocity.field_1351 * leadTicks * 0.35, velocity.field_1350 * leadTicks * 0.5);
+   }
+
+   private void decaySmoothState(class_746 player) {
+      this.smoothVelYaw *= 0.55F;
+      this.smoothVelPitch *= 0.55F;
+      this.smoothedDesiredYaw = player.method_36454();
+      this.smoothedDesiredPitch = player.method_36455();
+      this.stableFrames = 0;
+      this.smoothStable = false;
+   }
+
+   private void syncSmoothStateToPlayer(class_746 player) {
+      this.smoothedDesiredYaw = player.method_36454();
+      this.smoothedDesiredPitch = player.method_36455();
+      this.smoothVelYaw = 0.0F;
+      this.smoothVelPitch = 0.0F;
+      this.stableFrames = 0;
+   }
+
+   private float getSmoothLockAmount(NeuroAimEngine.Settings settings, class_746 player, class_1657 target, float partialTick, class_310 client) {
+      class_243 eyePos = getAimEyePos(player, client, partialTick);
+      class_243 aim = this.resolvePredictedAimPoint(player, target, settings.getAimHeight(), partialTick, settings, client);
+      float[] rot = getSyncRotations(eyePos, aim);
+      float yawErr = Math.abs(class_3532.method_15393(rot[0] - player.method_36454()));
+      float pitchErr = Math.abs(rot[1] - player.method_36455());
+      float err = yawErr + pitchErr * 0.55F;
+      float maxErr = class_3532.method_15363(settings.getFov() * 0.35F, 12.0F, 55.0F);
+      float amount = 1.0F - class_3532.method_15363(err / maxErr, 0.0F, 1.0F);
+      if (amount >= 0.92F) {
+         this.stableFrames++;
+      } else {
+         this.stableFrames = 0;
+         this.smoothStable = false;
+      }
+
+      return amount;
+   }
+
+   private boolean canAssistSmooth(NeuroAimEngine.Settings settings, class_310 client) {
+      return settings.isRequireAttackHeld() && !isAttackHeld(client) ? false : this.canAssistWithCoupling(settings);
+   }
+
+   private boolean canAssistWithCoupling(NeuroAimEngine.Settings settings) {
+      String var2 = settings.getMovementCoupling();
+
+      return switch (var2) {
+         case "Always" -> true;
+         case "After Idle" -> {
+            if (this.isManualInputActive()) {
+               yield false;
+            } else if (this.lastManualInputMs == 0L) {
+               yield true;
+            } else {
+               long idleMs = (long)(settings.getIdleDelaySeconds() * 1000.0F);
+               yield System.currentTimeMillis() - this.lastManualInputMs >= idleMs;
+            }
+         }
+         default -> this.isManualInputActive();
+      };
+   }
+
+   private class_1657 resolveTarget(class_746 player, NeuroAimEngine.Settings settings, class_310 client) {
+      return this.currentTargetId >= 0
+            && player.method_37908().method_8469(this.currentTargetId) instanceof class_1657 target
+            && target.method_5805()
+            && !target.method_31481()
+            && player.method_5739(target) <= class_3532.method_15363(settings.getRange(), 1.0F, 50.0F)
+         ? target
+         : this.findBestTarget(player, settings, client);
+   }
+
+   private class_1657 findBestTarget(class_746 player, NeuroAimEngine.Settings settings, class_310 client) {
+      if (this.focusTarget != null && (!this.focusTarget.method_5805() || this.focusTarget.method_31481())) {
+         this.focusTarget = null;
+      }
+
+      boolean targetLock = settings.isFocusOnEnemy();
+      class_1657 locked = targetLock ? this.focusTarget : null;
+      if (locked == null
+         && targetLock
+         && this.currentTargetId >= 0
+         && player.method_37908().method_8469(this.currentTargetId) instanceof class_1657 sticky
+         && sticky.method_5805()
+         && !sticky.method_31481()) {
+         locked = sticky;
+      }
+
+      float[] view = getViewYawPitch(client, player);
+      return CombatTargetSelector.selectAimTarget(
+         player,
+         class_3532.method_15363(settings.getRange(), 1.0F, 50.0F),
+         class_3532.method_15363(settings.getFov(), 15.0F, 360.0F),
+         settings.isAimThroughWalls(),
+         targetLock,
+         locked,
+         settings.getTargetPriority(),
+         settings.getAntibot(),
+         view[0],
+         view[1]
+      );
+   }
+
+   private static class_243 getAimEyePos(class_746 player, class_310 client, float partialTick) {
+      return client.field_1690.method_31044().method_31034() ? player.method_5836(partialTick) : client.field_1773.method_19418().method_19326();
+   }
+
+   private static float[] getViewYawPitch(class_310 client, class_746 player) {
+      if (client.field_1690.method_31044().method_31034()) {
+         return new float[]{player.method_36454(), player.method_36455()};
+      } else {
+         class_4184 camera = client.field_1773.method_19418();
+         return new float[]{camera.method_19330(), camera.method_19329()};
+      }
+   }
+
+   private static float pseudoNoise(long seed, int channel) {
+      long x = seed * 6364136223846793005L + 1442695040888963407L + channel * -7046029254386353131L;
+      x ^= x >>> 33;
+      x *= -49064778989728563L;
+      x ^= x >>> 33;
+      return (float)((x & 65535L) / 65535.0);
+   }
+
+   private void updateManualInput(class_746 player) {
+      float yaw = player.method_36454();
+      float pitch = player.method_36455();
+      float dy = class_3532.method_15393(yaw - this.lastTickYaw);
+      float dp = pitch - this.lastTickPitch;
+      if (Math.abs(dy) > 0.012F || Math.abs(dp) > 0.012F) {
+         this.lastManualInputMs = System.currentTimeMillis();
+      }
+
+      this.lastTickYaw = yaw;
+      this.lastTickPitch = pitch;
+   }
+
+   private boolean isManualInputActive() {
+      return this.lastManualInputMs > 0L && System.currentTimeMillis() - this.lastManualInputMs < 350L;
+   }
+
+   private static boolean isAttackHeld(class_310 client) {
+      return client.field_1724 != null && client.method_22683() != null
+         ? GLFW.glfwGetMouseButton(client.method_22683().method_4490(), 0) == 1 || client.field_1690.field_1886.method_1434()
+         : false;
+   }
+
+   private static boolean isCrosshairOnTarget(class_310 client, class_1657 target) {
+      return client.field_1765 instanceof class_3966 ehr ? ehr.method_17782() == target : false;
+   }
+
+   private boolean handleEnableState(NeuroAimEngine.Settings settings) {
+      if (!settings.isEnabled()) {
+         if (this.wasEnabled) {
+            this.resetTracking();
+         }
+
+         this.wasEnabled = false;
+         return false;
+      } else {
+         if (!this.wasEnabled) {
+            this.resetTracking();
+            this.wasEnabled = true;
+         }
+
+         return true;
+      }
+   }
+
+   private static boolean canRun(class_310 client) {
+      return client.field_1724 != null && client.field_1687 != null && client.field_1755 == null;
+   }
+
+   private static class_243 getFocusPoint(class_1657 entity, float aimHeightNorm, float partialTicks) {
+      class_243 pos = entity.method_30950(partialTicks);
+      double height = entity.method_5829().method_17940();
+      if (entity.method_6128()) {
+         return pos.method_1031(0.0, height * 0.5, 0.0);
+      } else {
+         double y = height * class_3532.method_15350(aimHeightNorm, 0.05, 0.95);
+         return pos.method_1031(0.0, y, 0.0);
+      }
+   }
+
+   private static float[] getSyncRotations(class_243 eyePos, class_243 target) {
+      double dx = target.field_1352 - eyePos.field_1352;
+      double dy = target.field_1351 - eyePos.field_1351;
+      double dz = target.field_1350 - eyePos.field_1350;
+      double hDist = Math.sqrt(dx * dx + dz * dz);
+      float yaw = (float)Math.toDegrees(Math.atan2(-dx, dz));
+      float pitch = (float)(-Math.toDegrees(Math.atan2(dy, hDist)));
+      return new float[]{yaw, pitch};
+   }
+
+   private static double getMouseGcd(class_310 client) {
+      double sensitivity = (Double)client.field_1690.method_42495().method_41753();
+      double d0 = sensitivity * 0.6 + 0.2;
+      return d0 * d0 * d0 * 8.0 * 0.15;
+   }
+
+   private static double quantizeGcd(double rotation, double gcd) {
+      return gcd <= 1.0E-4 ? rotation : Math.round(rotation / gcd) * gcd;
+   }
+
+   public interface Settings {
+      boolean isEnabled();
+
+      String getMode();
+
+      String getMovementCoupling();
+
+      float getIdleDelaySeconds();
+
+      float getSpeed();
+
+      float getAcceleration();
+
+      float getRange();
+
+      float getFov();
+
+      float getAimHeight();
+
+      boolean isMultipoint();
+
+      boolean isSlotLock();
+
+      int getLockedSlot();
+
+      boolean isAimThroughWalls();
+
+      boolean isFocusOnEnemy();
+
+      boolean isRequireAttackHeld();
+
+      boolean isOnlyWhileClicking();
+
+      boolean isStopAtTarget();
+
+      boolean isElytraTracking();
+
+      String getTargetPriority();
+
+      ListEntryImpl getAntibot();
+   }
+}
